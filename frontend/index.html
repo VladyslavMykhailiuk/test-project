@@ -2,12 +2,215 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Test Project</title>
+
+    <!-- Подключение Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f7f7f7;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            background: #e9ecef;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
-<div>Hello World!</div>
+<div class="container" id="app">
+    <h1>Объединение преподавателя с предметом</h1>
+    <form id="assignment-form" style="display: none;">
+        <div class="form-group">
+            <label for="subject">Предмет:</label>
+            <select id="subject" required>
+                <option value="">Выберите предмет</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="teacher">Преподаватель:</label>
+            <select id="teacher" required>
+                <option value="">Выберите преподавателя</option>
+            </select>
+        </div>
+        <button type="submit">Добавить</button>
+    </form>
+    <h2>Список объединений</h2>
+    <ul id="assignments-list"></ul>
+</div>
+
+<script>
+    const subjects = [];
+    const teachers = [];
+    const assignments = [];
+
+    const fetchSubjects = async () => {
+        try {
+            const response = await axios.get('http://test.localhost/subjects');
+            response.data.forEach(subject => subjects.push(subject));
+            populateSubjectSelect();
+            toggleFormVisibility();
+        } catch (error) {
+            console.error('Error fetching subjects:', error);
+        }
+    };
+
+    const fetchTeachers = async () => {
+        try {
+            const response = await axios.get('http://test.localhost/teachers');
+            response.data.forEach(teacher => teachers.push(teacher));
+            populateTeacherSelect();
+        } catch (error) {
+            console.error('Error fetching teachers:', error);
+        }
+    };
+
+    const fetchAssignments = async () => {
+        try {
+            const response = await axios.get('http://test.localhost/teachers-schedules');
+            response.data.forEach(assignment => assignments.push(assignment));
+            renderAssignments();
+        } catch (error) {
+            console.error('Error fetching assignments:', error);
+        }
+    };
+
+    const populateSubjectSelect = () => {
+        const subjectSelect = document.getElementById('subject');
+        subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject.id;
+            option.textContent = subject.subject;
+            subjectSelect.appendChild(option);
+        });
+    };
+
+    const populateTeacherSelect = () => {
+        const teacherSelect = document.getElementById('teacher');
+        teachers.forEach(teacher => {
+            const option = document.createElement('option');
+            option.value = teacher.id;
+            option.textContent = `${teacher.first_name} ${teacher.last_name}`;
+            teacherSelect.appendChild(option);
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const selectedSubject = document.getElementById('subject').value;
+        const selectedTeacher = document.getElementById('teacher').value;
+
+        if (selectedSubject && selectedTeacher) {
+            try {
+                await axios.post('http://test.localhost/teachers-schedules', {
+                    schedule_id: selectedSubject,
+                    teacher_id: selectedTeacher,
+                }, {
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                }).then((response)=> {
+                    assignments.length = 0;
+                    fetchAssignments();
+                    clearForm();
+                    Swal.fire({
+                        icon: "success",
+                        title: "Congratulations!!!",
+                        text: `${response.data.message}`,
+                    });
+                })
+            } catch (error) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: `${error.response.data.error}`,
+                });
+            }
+        }
+    };
+
+    const renderAssignments = () => {
+        const assignmentsList = document.getElementById('assignments-list');
+        assignmentsList.innerHTML = '';
+
+        assignments.forEach(assignment => {
+            const li = document.createElement('li');
+            const teacherName = teachers.find(t => t.id === assignment.teacher_id)?.first_name + ' ' + teachers.find(t => t.id === assignment.teacher_id)?.last_name || 'Unknown Teacher';
+            const subjectName = subjects.find(s => s.id === assignment.schedule_id)?.subject || 'Unknown Subject';
+            li.textContent = `${teacherName} преподает ${subjectName}`;
+            assignmentsList.appendChild(li);
+        });
+    };
+
+    const clearForm = () => {
+        document.getElementById('subject').value = '';
+        document.getElementById('teacher').value = '';
+    };
+
+    const toggleFormVisibility = () => {
+        const form = document.getElementById('assignment-form');
+        form.style.display = subjects.length > 0 ? 'block' : 'none';
+    };
+
+    document.getElementById('assignment-form').addEventListener('submit', handleSubmit);
+
+    // Fetch data when the page loads
+    fetchSubjects();
+    fetchTeachers();
+    fetchAssignments(); // Получаем уже существующие объединения
+</script>
 </body>
 </html>

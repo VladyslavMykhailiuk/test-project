@@ -37,6 +37,9 @@ class Router {
 $router = new Router();
 
 $router->get('/teachers', 'TeachersController@index');
+$router->get('/subjects', 'SchedulesController@index');
+$router->get('/teachers-schedules', 'TeacherScheduleController@index');
+$router->post('/teachers-schedules', 'TeacherScheduleController@store');
 $router->post('/teachers', 'TeachersController@store');
 
 $router->dispatch();
