@@ -1,0 +1,55 @@
+version: '3.8'
+
+networks:
+  test_project:
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: test-mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    environment:
+      TZ: Europe/Kiev
+      MYSQL_DATABASE: test_project
+      MYSQL_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - test_project
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: test-nginx
+    environment:
+      TZ: Europe/Kiev
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/var/www/test_project
+      - ./docker/config/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - test_project
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/containers/dev/php.Dockerfile
+    container_name: test-php
+    environment:
+      TZ: Europe/Kiev
+    working_dir: /var/www/test_project
+    volumes:
+      - ./:/var/www/test_project
+    ports:
+      - "9003:9000"
+    networks:
+      - test_project
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
