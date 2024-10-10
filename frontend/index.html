@@ -36,7 +36,7 @@
             font-weight: bold;
         }
 
-        select {
+        select, input[type="text"] {
             width: 100%;
             padding: 8px;
             border: 1px solid #ccc;
@@ -72,7 +72,30 @@
 </head>
 <body>
 <div class="container" id="app">
+    <!-- New Form for creating schedules -->
+    <h1>Создание расписания</h1>
+    <form id="schedule-form" style="display: none;">
+        <div class="form-group">
+            <label for="dayOfWeek">День недели:</label>
+            <select id="dayOfWeek" required>
+                <option value="">Выберите день</option>
+                <option value="Monday">Понедельник</option>
+                <option value="Tuesday">Вторник</option>
+                <option value="Wednesday">Среда</option>
+                <option value="Thursday">Четверг</option>
+                <option value="Friday">Пятница</option>
+                <option value="Saturday">Суббота</option>
+                <option value="Sunday">Воскресенье</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="scheduleSubject">Название предмета:</label>
+            <input type="text" id="scheduleSubject" placeholder="Введите название предмета" required />
+        </div>
+        <button type="submit">Создать расписание</button>
+    </form>
     <h1>Объединение преподавателя с предметом</h1>
+    <!-- Form for assigning teachers to subjects -->
     <form id="assignment-form" style="display: none;">
         <div class="form-group">
             <label for="subject">Предмет:</label>
@@ -88,6 +111,7 @@
         </div>
         <button type="submit">Добавить</button>
     </form>
+
     <h2>Список объединений</h2>
     <ul id="assignments-list"></ul>
 </div>
@@ -102,7 +126,8 @@
             const response = await axios.get('http://test.localhost/subjects');
             response.data.forEach(subject => subjects.push(subject));
             populateSubjectSelect();
-            toggleFormVisibility();
+            toggleAssignmentFormVisibility();
+            toggleScheduleFormVisibility();
         } catch (error) {
             console.error('Error fetching subjects:', error);
         }
@@ -133,7 +158,7 @@
         subjects.forEach(subject => {
             const option = document.createElement('option');
             option.value = subject.id;
-            option.textContent = subject.subject;
+            option.textContent = `${subject.subject} on ${subject.day}`;
             subjectSelect.appendChild(option);
         });
     };
@@ -148,7 +173,7 @@
         });
     };
 
-    const handleSubmit = async (e) => {
+    const handleAssignmentSubmit = async (e) => {
         e.preventDefault();
         const selectedSubject = document.getElementById('subject').value;
         const selectedTeacher = document.getElementById('teacher').value;
@@ -162,16 +187,49 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     }
-                }).then((response)=> {
+                }).then((response) => {
                     assignments.length = 0;
                     fetchAssignments();
-                    clearForm();
+                    clearAssignmentForm();
                     Swal.fire({
                         icon: "success",
                         title: "Congratulations!!!",
                         text: `${response.data.message}`,
                     });
-                })
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: `${error.response.data.error}`,
+                });
+            }
+        }
+    };
+
+    const handleScheduleSubmit = async (e) => {
+        e.preventDefault();
+        const selectedDay = document.getElementById('dayOfWeek').value;
+        const subjectName = document.getElementById('scheduleSubject').value;
+
+        if (selectedDay && subjectName) {
+            try {
+                await axios.post('http://test.localhost/subjects', {
+                    day: selectedDay,
+                    subject: subjectName, // Send the entered subject name
+                },{
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                }).then((response) => {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Schedule Created!",
+                        text: `${response.data.message}`,
+                    });
+                    document.getElementById('schedule-form').reset();
+                    toggleAssignmentFormVisibility();
+                });
             } catch (error) {
                 Swal.fire({
                     icon: "error",
@@ -190,27 +248,33 @@
             const li = document.createElement('li');
             const teacherName = teachers.find(t => t.id === assignment.teacher_id)?.first_name + ' ' + teachers.find(t => t.id === assignment.teacher_id)?.last_name || 'Unknown Teacher';
             const subjectName = subjects.find(s => s.id === assignment.schedule_id)?.subject || 'Unknown Subject';
-            li.textContent = `${teacherName} преподает ${subjectName}`;
+            const subjectDay = subjects.find(s => s.id === assignment.schedule_id)?.day || 'Unknown Day';
+            li.textContent = `${teacherName} преподает ${subjectName} on ${subjectDay}`;
             assignmentsList.appendChild(li);
         });
     };
 
-    const clearForm = () => {
+    const clearAssignmentForm = () => {
         document.getElementById('subject').value = '';
         document.getElementById('teacher').value = '';
     };
 
-    const toggleFormVisibility = () => {
-        const form = document.getElementById('assignment-form');
-        form.style.display = subjects.length > 0 ? 'block' : 'none';
+    const toggleAssignmentFormVisibility = () => {
+        const assignmentForm = document.getElementById('assignment-form');
+        assignmentForm.style.display = (subjects.length > 0 && teachers.length > 0) ? 'block' : 'none';
     };
 
-    document.getElementById('assignment-form').addEventListener('submit', handleSubmit);
+    const toggleScheduleFormVisibility = () => {
+        const scheduleForm = document.getElementById('schedule-form');
+        scheduleForm.style.display = (subjects.length > 0) ? 'block' : 'block';
+    };
 
-    // Fetch data when the page loads
-    fetchSubjects();
+    document.getElementById('assignment-form').addEventListener('submit', handleAssignmentSubmit);
+    document.getElementById('schedule-form').addEventListener('submit', handleScheduleSubmit);
+
     fetchTeachers();
-    fetchAssignments(); // Получаем уже существующие объединения
+    fetchSubjects();
+    fetchAssignments();
 </script>
 </body>
 </html>
